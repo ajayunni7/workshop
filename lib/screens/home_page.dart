@@ -33,98 +33,191 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text("Todo App"),
+        title: const Text(
+          "My Tasks",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: false,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0,
       ),
       body: todos.isEmpty
-          ? const Center(
-              child: Text("No todos. Add one!"),
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.task_alt,
+                    size: 80,
+                    color: theme.colorScheme.primary.withOpacity(0.5),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    "No tasks yet",
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Add a task to get started",
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             )
           : ListView.builder(
+              padding: const EdgeInsets.all(16),
               itemCount: todos.length,
               itemBuilder: (context, index) {
                 final todo = todos[index];
-                return ListTile(
-                  leading: Checkbox(
-                    value: todo.isComplete,
-                    onChanged: (bool? value) async {
-                      final updatedTodo = Todo(
-                        id: todo.id,
-                        title: todo.title,
-                        isComplete: !todo.isComplete,
-                        createdAt: todo.createdAt,
-                      );
-                      await dbHelper.updateTodo(updatedTodo);
-                      loadTodos();
-                    },
-                  ),
-                  title: GestureDetector(
+                final isCompleted = todo.isComplete;
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
                     onTap: () async {
-                      // Open EditTodoPage
-                      final result = await showDialog<bool>(
+                      // Open EditTodoPage in a bottom sheet
+                      final result = await showModalBottomSheet<bool>(
                         context: context,
+                        isScrollControlled: true,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                        ),
                         builder: (context) => EditTodoPage(todo: todo),
                       );
                       
                       if (result == true) {
-                        // Refresh list after edit
                         loadTodos();
                       }
                     },
-                    child: Text(
-                      todo.title,
-                      style: TextStyle(
-                        decoration: todo.isComplete 
-                            ? TextDecoration.lineThrough 
-                            : TextDecoration.none,
-                        color: todo.isComplete ? Colors.grey : Colors.black,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isCompleted 
+                            ? theme.colorScheme.surfaceContainerHighest.withOpacity(0.4)
+                            : theme.colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isCompleted 
+                              ? Colors.transparent
+                              : theme.colorScheme.outlineVariant.withOpacity(0.5),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // Custom styled checkbox behavior
+                          GestureDetector(
+                            onTap: () async {
+                              final updatedTodo = Todo(
+                                id: todo.id,
+                                title: todo.title,
+                                isComplete: !todo.isComplete,
+                                createdAt: todo.createdAt,
+                              );
+                              await dbHelper.updateTodo(updatedTodo);
+                              loadTodos();
+                            },
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isCompleted 
+                                    ? theme.colorScheme.primary 
+                                    : Colors.transparent,
+                                border: Border.all(
+                                  color: isCompleted 
+                                      ? theme.colorScheme.primary 
+                                      : theme.colorScheme.outline,
+                                  width: 2,
+                                ),
+                              ),
+                              child: isCompleted 
+                                  ? Icon(Icons.check, size: 16, color: theme.colorScheme.onPrimary)
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              todo.title,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                color: isCompleted 
+                                    ? theme.colorScheme.onSurfaceVariant 
+                                    : theme.colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.delete_outline,
+                              color: theme.colorScheme.error.withOpacity(0.8),
+                            ),
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Delete Task?'),
+                                  content: const Text('This action cannot be undone.'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: theme.colorScheme.error,
+                                      ),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              
+                              if (confirm == true && todo.id != null) {
+                                await dbHelper.deleteTodo(todo.id!);
+                                loadTodos();
+                              }
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Delete Todo?'),
-                          content: const Text('This action cannot be undone.'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text('Delete'),
-                            ),
-                          ],
-                        ),
-                      );
-                      
-                      if (confirm == true && todo.id != null) {
-                        await dbHelper.deleteTodo(todo.id!);
-                        loadTodos();
-                      }
-                    },
                   ),
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await showDialog(
+          final result = await showModalBottomSheet<bool>(
             context: context,
+            isScrollControlled: true,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
             builder: (context) => const AddTodoPage(),
           );
           
           if (result == true) {
-            // User successfully added a new todo, refresh the list
             loadTodos();
           }
         },
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Add Task'),
+        elevation: 4,
       ),
     );
   }
