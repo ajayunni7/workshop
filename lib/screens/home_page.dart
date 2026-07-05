@@ -4,6 +4,8 @@ import '../database/database_helper.dart';
 import 'add_todo_page.dart';
 import 'edit_todo_page.dart';
 
+// HomePage is a StatefulWidget because its data (the list of todos) can change
+// over time, requiring the UI to rebuild and reflect those changes.
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -11,30 +13,39 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+// _HomePageState holds the mutable data and the build method for HomePage.
 class _HomePageState extends State<HomePage> {
   // State variables
-  List<Todo> todos = [];
-  final DatabaseHelper dbHelper = DatabaseHelper();
+  List<Todo> todos = []; // Holds the list of tasks currently displayed on screen
+  final DatabaseHelper dbHelper = DatabaseHelper(); // Access to our SQLite database
 
+  // initState is called exactly once when this widget is first created.
   @override
   void initState() {
     super.initState();
-    // Fetch todos from database when screen loads
+    // We fetch the todos from the database as soon as the screen loads.
     loadTodos();
   }
 
-  // Refreshes the list on screen by fetching from database
+  // Fetches the latest list of todos from the database and updates the UI.
   Future<void> loadTodos() async {
-    final result = await dbHelper.getAllTodos();
+    final result = await dbHelper.getAllTodos(); // Get data from DB
+    
+    // setState tells Flutter that the data has changed, forcing it to call
+    // the build() method again to redraw the screen with the new data.
     setState(() {
       todos = result;
     });
   }
 
+  // The build method describes what the UI should look like based on current state.
   @override
   Widget build(BuildContext context) {
+    // Theme holds all the color and typography settings we defined in main.dart
     final theme = Theme.of(context);
     
+    // Scaffold provides the basic visual structure for a material design screen
+    // (like AppBars, Drawers, and FloatingActionButtons).
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
@@ -47,6 +58,7 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Colors.transparent,
         scrolledUnderElevation: 0,
       ),
+      // If there are no todos, we show a friendly "Empty State" message.
       body: todos.isEmpty
           ? Center(
               child: Column(
@@ -75,19 +87,22 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             )
+            // If there ARE todos, we use a ListView.builder.
+            // This is efficient because it only builds the list items that are currently visible on screen.
           : ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: todos.length,
-              itemBuilder: (context, index) {
-                final todo = todos[index];
+              itemCount: todos.length, // How many items to display
+              itemBuilder: (context, index) { // How to build each item
+                final todo = todos[index]; // Get the specific task for this row
                 final isCompleted = todo.isComplete;
                 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
+                  // InkWell adds a nice ripple animation when the item is tapped
                   child: InkWell(
                     borderRadius: BorderRadius.circular(16),
                     onTap: () async {
-                      // Open EditTodoPage in a bottom sheet
+                      // When a task is tapped, open the Edit screen in a Bottom Sheet
                       final result = await showModalBottomSheet<bool>(
                         context: context,
                         isScrollControlled: true,
@@ -200,17 +215,22 @@ class _HomePageState extends State<HomePage> {
                 );
               },
             ),
+      // The button in the bottom right corner used to add new tasks.
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
+          // showModalBottomSheet slides a new widget up from the bottom of the screen.
+          // We wait for it to return a result (true if a task was added).
           final result = await showModalBottomSheet<bool>(
             context: context,
-            isScrollControlled: true,
+            isScrollControlled: true, // Allows the sheet to take up more screen space if needed
             shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
             builder: (context) => const AddTodoPage(),
           );
           
+          // If the AddTodoPage returned true, it means a task was saved.
+          // So we need to fetch the updated list from the database.
           if (result == true) {
             loadTodos();
           }

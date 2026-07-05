@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import '../models/todo.dart';
 import '../database/database_helper.dart';
 
+// EditTodoPage is similar to AddTodoPage, but it takes an existing Todo object
+// to modify, rather than creating a brand new one.
 class EditTodoPage extends StatefulWidget {
+  // The task we want to edit, passed in from the HomePage.
   final Todo todo;
   
+  // We require the 'todo' parameter when this widget is created.
   const EditTodoPage({super.key, required this.todo});
 
   @override
@@ -12,23 +16,29 @@ class EditTodoPage extends StatefulWidget {
 }
 
 class _EditTodoPageState extends State<EditTodoPage> {
+  // Use 'late' because we will initialize these variables inside initState(),
+  // which runs after the widget is constructed but before build().
   late TextEditingController _titleController;
   late DatabaseHelper dbHelper;
 
+  // initState runs exactly once when this screen is opened.
   @override
   void initState() {
     super.initState();
-    // Pre-populate with current todo title
+    // Pre-populate the text field with the existing task's title.
+    // We access the properties of the parent widget using 'widget.propertyName'.
     _titleController = TextEditingController(text: widget.todo.title);
     dbHelper = DatabaseHelper();
   }
 
+  // Clean up memory when this widget is closed.
   @override
   void dispose() {
     _titleController.dispose();
     super.dispose();
   }
 
+  // Build the UI for the edit task form.
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -81,26 +91,30 @@ class _EditTodoPageState extends State<EditTodoPage> {
               const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () async {
+                  // Ensure they didn't clear out the title completely.
                   if (_titleController.text.trim().isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Please enter a title')),
                     );
-                    return;
+                    return; // Stop the function here
                   }
                   
-                  // Create updated todo with new title
+                  // Create a NEW Todo object with the updated title, but KEEP 
+                  // the original ID, completion status, and creation date.
                   final updatedTodo = Todo(
-                    id: widget.todo.id,
+                    id: widget.todo.id, // Important: keeping the same ID tells the DB to update, not create!
                     title: _titleController.text.trim(),
                     isComplete: widget.todo.isComplete,
                     createdAt: widget.todo.createdAt,
                   );
                   
-                  // Update in database
+                  // Send the updated task to the database.
                   await dbHelper.updateTodo(updatedTodo);
                   
+                  // Ensure the screen hasn't been closed before we try to pop it.
                   if (!context.mounted) return;
-                  // Pop with true result
+                  
+                  // Pop the bottom sheet and return 'true' to signal a successful edit.
                   Navigator.pop(context, true);
                 },
                 style: ElevatedButton.styleFrom(
